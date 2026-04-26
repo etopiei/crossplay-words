@@ -1,0 +1,7 @@
+{:deps
+  {
+    org.clojure/clojurescript {:mvn/version "1.12.134"}
+    trie/trie {:mvn/version "0.1.1"}
+    org.clojure/math.combinatorics {:mvn/version "0.3.2"}}
+  :paths ["src"]
+  :aliases {:cljs {:extra-deps {thheller/shadow-cljs {:mvn/version "3.3.6"}}}}}

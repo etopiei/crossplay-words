@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+    </head>
+    <body>
+        <h2>Crossplay Dictionary Search</h2>
+        <p>
+            Use this website to search for words in the NYT Crossplay
+            dictionary. By default it only finds exact matches (similar to
+            in-app functionality), but it has a 'rack search' mode that
+            interprets '?' as a blank tile and tries all permutations of letters
+            in your rack to find all available words. There is a limit of two
+            blanks as that's the maximum number of blanks in Crossplay. Each
+            blank significantly slows the search as the number of possibilities
+            grows quickly, so please be patient with 'two blank' searches. This
+            app runs purely in your browser, once the dictionary is loaded you
+            don't have to be online to access this tool.
+        </p>
+        <p id="dict-count" class="loading">... Loading Dictionary ...</p>
+        <div id="search-area" style="display: none">
+            <label>Rack Search?</label
+            ><input id="mode-toggle" type="checkbox" />
+            <div>
+                <input id="searchbox" type="text" placeholder="Search" />
+                <div id="results"></div>
+            </div>
+        </div>
+        <script src="js/main.js" type="text/javascript"></script>
+    </body>
+</html>
