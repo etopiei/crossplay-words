@@ -11,15 +11,29 @@
   ;; Maybe come back to this later, for now we don't have to bold blanks.
   result)
 
-(defn set-results [results search-text]
-  (let [results-string (str/join "<br>" (map #(bold-blanks search-text %) results))]
+(defn set-nope []
   (-> js/document
     (.getElementById "results")
     (.-innerHTML)
-    ;; TODO: Consider showing total results found as well as the fact we only display 50.
-    ;; (set! (apply str "50/" (count results) " results displayed<br>" results-string))
-    (set! results-string)
+    (set! "No match found.")))
+
+(defn set-success-results [results search-text]
+  (let [results-ps (map #(apply str "<p>" % "</p>") (map #(bold-blanks search-text %) results))]
+  (-> js/document
+    (.getElementById "results")
+    (.-innerHTML)
+    (set! (str/join "" results-ps))
     )))
+
+(defn set-results [results search-text]
+  (if (or (empty? results) (= [nil] results)) (set-nope) (set-success-results results search-text)))
+
+(defn set-error-more-than-two-blanks []
+  (-> js/document
+    (.getElementById "results")
+    (.-innerHTML)
+    (set! "Max of 2 blanks allowed.")
+    ))
 
 (defn exact-match [search-text]
   (get @dict search-text))
@@ -49,7 +63,9 @@
     (filter #(not (nil? %)) results)))
 
 (defn handle-rack-search [search-text]
-  (set-results (rack-search search-text) search-text))
+  (if (> (count (filter #(= \? %) search-text)) 2)
+    (set-error-more-than-two-blanks)
+    (set-results (rack-search search-text) search-text)))
 
 (defn handle-exact-search [search-text]
   (set-results [(exact-match search-text)] search-text))
@@ -57,7 +73,7 @@
 (defn handle-search [_]
   (let [search-text (str/lower-case (-> js/document (.getElementById "searchbox") (.-value)))]
   (if (= "" search-text)
-    (set-results "" [])
+    (set-results nil [])
     (let [cheat-mode? (-> js/document
       (.getElementById "mode-toggle")
       (.-checked))]
