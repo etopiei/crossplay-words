@@ -4,12 +4,7 @@
             [clojure.string :as str]
             [clojure.math.combinatorics :as combo]))
 
-(def dict (atom (t/trie [])))
-
-(defn bold-blanks [search-text result]
-  ;; This is actually a little tricky with duplicate chars, maybe need a loop recur that 'uses up' chrs.
-  ;; Maybe come back to this later, for now we don't have to bold blanks.
-  result)
+(def request (atom ""))
 
 (defn set-nope []
   (-> js/document
@@ -17,8 +12,14 @@
     (.-innerHTML)
     (set! "No match found.")))
 
+(defn set-loading []
+  (-> js/document
+      (.getElementById "results")
+      (.-innerHTML)
+      (set! "Loading...")))
+
 (defn set-success-results [results search-text]
-  (let [results-ps (map #(apply str "<p>" % "</p>") (map #(bold-blanks search-text %) results))]
+  (let [results-ps (map #(apply str "<p>" % "</p>") results)]
   (-> js/document
     (.getElementById "results")
     (.-innerHTML)
@@ -35,76 +36,66 @@
     (set! "Max of 2 blanks allowed.")
     ))
 
-(defn exact-match [search-text]
-  (get @dict search-text))
+(defn rack-search [worker search-text] (.. worker (postMessage (clj->js {:query search-text :type "rack"}))))
+(defn exact-match [worker search-text] (.. worker (postMessage (clj->js {:query search-text :type "exact"})))) 
 
-(def a-to-z (map char (range 97 123)))
-
-(defn add-all-az [rack]
-  (map #(str rack %) a-to-z))
-
-(defn append-all [racks appends-left]
-  (if (zero? appends-left)
-    racks
-    (append-all (mapcat add-all-az racks) (dec appends-left))))
-
-(defn get-racks [search-text]
-  (let [non-blank-text (apply str (remove #(= \? %) search-text))
-        num-appends (abs (- (count search-text) (count non-blank-text)))]
-  (append-all [non-blank-text] num-appends)))
-
-(defn rack-permutations [search-text]
-  (let [racks (get-racks search-text)]
-    (map #(apply str %) (mapcat #(combo/permutations %) racks))))
-
-(defn rack-search [search-text]
-  (let [racks (rack-permutations search-text)
-        results (map exact-match racks)]
-    (filter #(not (nil? %)) results)))
-
-(defn handle-rack-search [search-text]
+(defn handle-rack-search [worker search-text]
   (if (> (count (filter #(= \? %) search-text)) 2)
     (set-error-more-than-two-blanks)
-    (set-results (rack-search search-text) search-text)))
+    (do
+      (reset! request search-text)
+      (rack-search worker search-text))))
 
-(defn handle-exact-search [search-text]
-  (set-results [(exact-match search-text)] search-text))
+(defn handle-exact-search [worker search-text]
+  (reset! request search-text)
+  (exact-match worker search-text))
 
-(defn handle-search [_]
+(defn handle-search [worker _]
   (let [search-text (str/lower-case (-> js/document (.getElementById "searchbox") (.-value)))]
   (if (= "" search-text)
     (set-results nil [])
     (let [cheat-mode? (-> js/document
       (.getElementById "mode-toggle")
       (.-checked))]
-    (if cheat-mode? (handle-rack-search search-text) (handle-exact-search search-text))))))
+    (set-loading)
+    (if cheat-mode? (handle-rack-search worker search-text) (handle-exact-search worker search-text))))))
 
-(defn set-dict-count []
+(defn set-dict-count [num-items]
   (-> js/document
     (.getElementById "dict-count")
     (.-innerHTML)
-    (set! (str "Loaded " (count @dict) " words into dictionary"))))
+    (set! (str "Loaded " num-items " words into dictionary"))))
 
 (defn show-search-box []
   (-> js/document
     (.getElementById "search-area")
     (.setAttribute "style" "display: block")))
 
-(defn on-load []
-  (-> (js/fetch "/words.txt")
-    (.then #(.text %))
-    (.then (fn [word-data]
-      (reset! dict (t/trie (str/split word-data #"\n")))
-      (set-dict-count)
-      (show-search-box))))
+(defn handle-result [search-text results]
+  (if (= search-text @request) (set-results results search-text)))
 
+(defn handle-worker-message [e]
+  (let [msg (.-data e)
+        type (.-type msg)]
+    (if (= type "ready") (do
+                           (set-dict-count (.-count msg))
+                           (show-search-box))
+        (handle-result (.-query msg) (js->clj (.-result msg))))))
+
+(defn handle-with-worker [worker]
+  (fn [e] (handle-search worker e)))
+
+(defn on-load []
+  (let [worker (js/Worker. "/js/worker.js")]
+   (.. worker (addEventListener "message" handle-worker-message))
+    
   (-> js/document
     (.getElementById "searchbox")
-    (.addEventListener "input" handle-search))
+    (.addEventListener "input" (handle-with-worker worker)))
 
   (-> js/document
       (.getElementById "mode-toggle")
-      (.addEventListener "input" handle-search)))
+      (.addEventListener "input" (handle-with-worker worker)))))
 
 (defn ^:export init []
   (js/document.addEventListener "DOMContentLoaded" on-load))

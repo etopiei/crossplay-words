@@ -1,5 +1,12 @@
 {:deps {:aliases [:cljs]}
  :builds {:app {:target :browser
                 :output-dir "public/js"
-                :modules {:main {:init-fn crossplay-words.core/init}}}}
+                :modules
+                {:shared
+                 {:entries []}
+                 :main {:init-fn crossplay-words.core/init
+                 :depends-on #{:shared}}
+                :worker {:init-fn crossplay-words.worker/init
+                         :depends-on #{:shared}
+                         :web-worker true}}}}
  :dev-http {5555 "public"}}
