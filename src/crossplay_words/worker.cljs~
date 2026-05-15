@@ -1,3 +1,0 @@
-(defn init []
-  (-> (js/fetch "/words.txt")
-(.then #(.text %)) 
