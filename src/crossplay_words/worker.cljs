@@ -35,11 +35,15 @@
 (defn get-matches [type query]
   (if (= type "rack") (rack-search query) [(exact-match query)]))
 
+(def get-matches-memoized (memoize get-matches))
+
+(defn normalised-query [query] (apply str (sort query)))
+
 (defn handle-message [e]
   (let [msg (.-data e)
         query (.-query msg)
         type (.-type msg)
-        result (get-matches type query)]
+        result (get-matches-memoized type (normalised-query query))]
         (js/postMessage (clj->js {:type "result" :query query :result result}))))
 
 (defn init []
